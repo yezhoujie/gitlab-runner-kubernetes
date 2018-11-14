@@ -217,4 +217,5 @@ gitlab runner 不是执行ci主体，注册的gitlab runner只是负责再起几
 
 ## 参考
 [baseCi镜像：https://github.com/yezhoujie/java-docker-helm-baseci](https://github.com/yezhoujie/java-docker-helm-baseci)
+
 [java-ci-Demo:https://github.com/yezhoujie/hello-world-ci-final](https://github.com/yezhoujie/hello-world-ci-final)
