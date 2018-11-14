@@ -1,0 +1,111 @@
+#该yaml创建 git runner 
+---
+#创建namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gitlab
+  labels:
+    name: gitlab
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gitlab-runner
+  namespace: gitlab
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/exec", "secrets"]
+  verbs: ["get", "list", "watch", "create", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gitlab-runner
+  namespace: gitlab
+subjects:
+  - kind: ServiceAccount
+    name: gitlab-runner
+    namespace: gitlab
+roleRef:
+  kind: Role
+  name: gitlab-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gitlab-runner
+  namespace: gitlab
+---
+#创建configMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitlab-runner
+  namespace: gitlab
+data:
+  config.toml: |
+    concurrent = 1
+
+    [[runners]]
+      name = "Kubernetes Runner"
+      url = "http://10.66.0.18:8088/"
+      token = "7da090751a123c7584fba78b94a603"
+      executor = "kubernetes"
+      [runners.kubernetes]
+        namespace = "gitlab"
+        image = "busybox" 
+         helper_image = "gitlab/gitlab-runner-helper:x86_64-d954cadc"
+        [[runners.kubernetes.volumes.host_path]]
+          name = "m2"
+          mount_path = "/root/.m2"
+          read_only = false
+          host_path = "/root/.m2"
+        [[runners.kubernetes.volumes.host_path]]
+           name = "docker"
+           mount_path = "/var/run/docker.sock"
+           host_path = "/var/run/docker.sock" 
+        [[runners.kubernetes.volumes.host_path]]
+           name = "cache"
+           mount_path = "/root/cache"
+           host_path = "/root/cache" 
+---
+#创建deployment
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: gitlab-runner
+  namespace: gitlab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: gitlab-runner
+  template:
+    metadata:
+      labels:
+        name: gitlab-runner
+    spec:
+      serviceAccount: gitlab-runner
+      containers:
+      - args:
+        - run
+        image: gitlab/gitlab-runner:latest
+        imagePullPolicy: Always
+        name: gitlab-runner
+        volumeMounts:
+        - mountPath: /etc/gitlab-runner
+          name: config
+        - mountPath: /etc/ssl/certs
+          name: cacerts
+          readOnly: true
+      restartPolicy: Always
+      volumes:
+      - configMap:
+          name: gitlab-runner
+        name: config
+      - hostPath:
+          path: /usr/share/ca-certificates/mozilla
+        name: cacerts
+        
